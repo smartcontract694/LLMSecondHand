@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Assistant</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif; /* Change font family */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center content */
+        }
+        .header {
+            display: flex;
+            align-items: center; /* Center icon and text vertically */
+            margin-bottom: 10px;
+        }
+        .header img {
+            width: 80px; /* Size of the battery icon */
+            height: 80px; /* Size of the battery icon */
+            margin-right: 10px; /* Space between icon and text */
+           
+        }
+        #chatbox {
+        width: 95%;
+        height: 350px;
+        border: 1px solid black;
+        padding: 10px;
+        overflow-y: scroll;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+    #userInput {
+        width: 80%; /* Adjust width so the input and button fit side-by-side */
+        padding: 10px;
+    }
+    #submitBtn {
+        width: 20%; /* Adjust button width */
+        margin-left: 2px; /* Small gap between input and button */
+        padding: 10px;
+    }
+ /* Style for user and assistant message containers */
+ .message-container {
+            display: flex;
+            align-items: flex-start;;
+            margin-bottom: 5px;
+        }
+         /* Style for user and assistant messages */
+    .user-message {
+        background-color: #d4edda; /* Light green for user */
+        color: #000000;
+        padding: 8px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        max-width: 90%;
+        align-self: flex-end;
+    }
+    .assistant-message {
+        background-color: #e1f8fc; /* Light blue for assistant */
+        color: #000000;
+        padding: 8px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        max-width: 90%;
+    }
+    .icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+      <img src="batteryicon.png" alt="Battery Icon">
+      <h2>Your Second Hand EV Battery Assistant</h2>
+  
+</div>
+    <div id="chatbox"></div>
+
+    <input type="text" id="userInput" placeholder="Ask something..." />
+    <button id="submitBtn">Send</button>
+
+    <script>
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const userMessage = document.getElementById('userInput').value;
+            document.getElementById('userInput').value = '';
+            if (userMessage) {
+                // Add the user's message to the chatbox
+                const chatbox = document.getElementById('chatbox');
+                //chatbox.innerHTML += `<p><strong style="color: green;">User:</strong> ${userMessage}</p>`;
+                //chatbox.innerHTML += `<div class="user-message"><strong>User:</strong> ${userMessage}</div>`;
+ // Add the user's message with user icon
+ chatbox.innerHTML += `
+                    <div class="message-container">
+                        <img src="user-icon.png" class="icon" alt="User Icon">
+                        <div class="user-message">${userMessage}</div>
+                    </div>
+                `;
+                
+                // Send the user's message to the server
+                const response = await fetch('/ask-assistant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userMessage })
+                });
+
+                const data = await response.json();
+         // Format response for bold text and new lines before hyphens
+         let formattedReply = data.reply
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold formatting
+          .replace(/:\s*-/g, ':<br>-')                      // Line break after colon if followed by hyphen
+          .replace(/ -/g, '<br>-') 
+          .replace(/###/g, '<br>')
+          .replace(/(\d+\.\s)/g, '<br>$1');
+                                 // Line break before each hyphen
+
+                console.log("data.reply is: ", formattedReply);
+                // Display the assistant's response in the chatbox
+                //chatbox.innerHTML += `<p><strong style="color: blue;">Assistant:</strong> ${formattedReply}</p>`;
+                //chatbox.innerHTML += `<div class="assistant-message"><strong>Assistant:</strong> ${formattedReply}</div>`;
+                chatbox.innerHTML += `
+                    <div class="message-container">
+                        <img src="assistant-icon.png" class="icon" alt="Assistant Icon">
+                        <div class="assistant-message">${formattedReply}</div>
+                    </div>
+                `;
+                // Clear the input field
+                document.getElementById('userInput').value = '';
+                chatbox.scrollTop = chatbox.scrollHeight; // Auto-scroll to the latest message
+            }
+        });
+    </script>
+</body>
+</html>
