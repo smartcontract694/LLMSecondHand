@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+pragma solidity ^0.8.6;
+//0x0000000000000000000000000000000000000000000000000000006d6168616d
+contract EVtrading{
+    struct EVbattery{
+      uint id;
+      uint price;
+      address owner;
+      uint currentSOH;
+      bytes32 SOHreportHash;
+      uint256 lastSoHupdate; //timestamp
+      string batteryModelChemistry;
+      string manufacturer;
+      uint256 manufactureDate;
+      uint initialCapacity;// (kWh) The battery’s original capacity when it was first produced.
+      uint cycleCount;
+      uint currentCapacity;// (kWh)
+      uint currentMilage;// by the last owner
+      bytes32 maintenanceRecords; //ipfs hash
+      uint sustainabilityScore;
+    }
+address SCowner;
+mapping (address=> bool)  public registeredUsers;
+address  CertificationAuthority;
+bytes32  agreementContractHash;//agreement between any two users performing a trade
+
+mapping (uint=>bool) public  batteryAvailableForSale;//true means the battery is still available for sale
+mapping(uint=>EVbattery)  RegisteredEVbatteries;
+mapping(uint=>bool)  public isBatteryRegistered;
+
+event EVBatterySoldToNewOwner(uint indexed batteryID, address newOwner);
+event agreementContractHashAnnounced(bytes32 hash);
+event userRegisteredSuccessfully(address indexed user);
+event newBatteryAddedByUser(uint indexed id,
+      address indexed owner    
+      );
+event EVBatteryAbailableForSale(uint indexed batteryID);
+event EVBatteryIsUpdatedWithNewInformation(uint indexed batteryID);
+event warrantyAndInsuranceInformationAdded(uint indexed batteryID, uint indexed warrantyPeriod, string warrantyTerms, 
+      address liabilityEntity,
+      bool indexed insuranceStatus,bool rewardEligibility);
+
+constructor (address SustainabilityCertificationAuthority, bytes32 hash ){
+    SCowner = msg.sender;//owner
+    CertificationAuthority = SustainabilityCertificationAuthority;
+    agreementContractHash = hash;
+    emit agreementContractHashAnnounced(hash);
+}
+ modifier onlyOwner{
+      require(msg.sender == SCowner);
+      _;
+    }
+
+
+  function registerUser(address user) public onlyOwner{
+    registeredUsers[user] = true;
+    emit userRegisteredSuccessfully(user);
+  }
+
+  //[1, 2, "0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB", 85, "0x0000000000000000000000000000000000000000000000000000006d6168616d", 1696780800, "Lithium-Ion", "Tesla", 1672531200, 75, 500, 70, 20000, "0x0000000000000000000000000000000000000000000000000000006d6168616d", 5]
+//Account 2 as owner:
+//[1, 2, "0x8a83488006d82F30d818E50Dd832719944CaD523", 85, "0x0000000000000000000000000000000000000000000000000000006d6168616d", 1696780800, "Lithium-Ion", "Tesla", 1672531200, 75, 500, 70, 20000, "0x0000000000000000000000000000000000000000000000000000006d696e746e", 5]
+//[3, 1, "0x8a83488006d82F30d818E50Dd832719944CaD523", 92, "0x0000000000000000000000000000000000000000000000000000006465746169", 1699000000, "Solid-State", "Toyota", 1658000000, 80, 400, 72, 18000, "0x000000000000000000000000000000000000000000000000000000737463646d", 8]
+//[4, 1,"0x8a83488006d82F30d818E50Dd832719944CaD523",    88,    "0x0000000000000000000000000000000000000000000000000000006d6168616d",    1697356800,    "Nickel-Cobalt-Manganese (NCM)",    "LG Energy Solution",    1677628800,    85,    400,    80,    15000,    "0x1220f00c19661a7c0d903b55c4a0453f12a03ed6a4fcb6dc25efadab9a2b3000",    7 ]
+// [5,    1, "0x8a83488006d82F30d818E50Dd832719944CaD523", 90,"0x0000000000000000000000000000000000000000000000000000006d6168616d", 1697359900,  "Lithium-Iron-Phosphate (LFP)", "Samsung SDI", 1677629900, 75, 350,  70, 12000,  "0x1220f00c19661a7c0d903b55c4a0453f12a03ed6a4fcb6dc25efadab9a2b3000",  6]
+ //[13,  1, "0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db", 90,"0x0000000000000000000000000000000000000000000000000000006d6168616d", 1697559900,  "Lithium-Iron-Phosphate (LFP)", "Samsung SDI", 1677629900, 40, 350,  70, 12000,  "0x1220f00c19661a7c0d903b55c4a0453f12a03ed6a4fcb6dc25efadab9a2b3000",  3]
+  function addEVbatteryToUser(EVbattery memory battery) public {
+    require(registeredUsers[msg.sender]);//user must be registered
+    RegisteredEVbatteries[battery.id] = battery;
+    isBatteryRegistered[battery.id] = true;
+    batteryAvailableForSale[battery.id]=true;
+    emit newBatteryAddedByUser(
+      battery.id , msg.sender   
+    );
+
+  }
+
+function addWarrantyRecyclabilityInsuranceInformationForBattery(uint batteryID, 
+  uint warrantyPeriod, string memory warrantyTerms, address liabilityEntity,
+      bool insuranceStatus,
+      bool rewardEligibility) public{
+     require(registeredUsers[msg.sender]);//user must be registered
+     emit warrantyAndInsuranceInformationAdded(
+      batteryID,
+      warrantyPeriod,
+      warrantyTerms,
+      liabilityEntity,
+      insuranceStatus,
+      rewardEligibility);
+  }
+
+ function isBatteryAvailableForSale(uint batteryID) public
+ {
+    require(batteryAvailableForSale[batteryID]);
+    emit EVBatteryAbailableForSale(batteryID);
+ } 
+
+//sell a battery
+function BuyBattery(uint batteryID, address payable sellerAddress) payable public
+{
+  require(registeredUsers[msg.sender] && registeredUsers[sellerAddress]);
+  require(batteryAvailableForSale[batteryID]);
+  require(msg.value == (RegisteredEVbatteries[batteryID].price * 1 ether));
+  batteryAvailableForSale[batteryID]= false;//no longer available
+  EVbattery memory battery =  RegisteredEVbatteries[batteryID];
+  battery.owner = msg.sender;
+  updateEVBatteryInformation(batteryID,battery);
+  
+   (bool sent, bytes memory data) = sellerAddress.call{value: msg.value}("");
+        require(sent, "Failed to send Ether");
+  
+  emit EVBatterySoldToNewOwner(batteryID, msg.sender);
+
+}
+
+//update the updatable paramters
+function updateEVBatteryInformation(uint BatteryID,  EVbattery memory updatedBattery) public {
+  require(registeredUsers[msg.sender]);
+  require(isBatteryRegistered[BatteryID]);
+  RegisteredEVbatteries[BatteryID] = updatedBattery;
+emit EVBatteryIsUpdatedWithNewInformation(BatteryID);
+
+}
+
+}
